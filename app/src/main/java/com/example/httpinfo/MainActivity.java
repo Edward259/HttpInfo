@@ -12,37 +12,21 @@ import android.net.Network;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
+import android.os.Bundle;
 import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.text.TextUtils;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
-import android.widget.Toolbar;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.net.Inet6Address;
 import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
-    private WifiManager my_wifiManager;
+    private WifiManager wifiManager;
     private WifiInfo wifiInfo;
     private DhcpInfo dhcpInfo;
     private TextView infoTv;
@@ -58,9 +42,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         infoTv = findViewById(R.id.main_activity_tv_info);
-        my_wifiManager = ((WifiManager) getSystemService("wifi"));
-        dhcpInfo = my_wifiManager.getDhcpInfo();
-        wifiInfo = my_wifiManager.getConnectionInfo();
+        wifiManager = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE));
+        dhcpInfo = wifiManager.getDhcpInfo();
+        wifiInfo = wifiManager.getConnectionInfo();
         findViewById(R.id.main_activity_start_btn).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
