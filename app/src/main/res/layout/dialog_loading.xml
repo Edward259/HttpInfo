@@ -6,7 +6,7 @@
     android:orientation="vertical">
 
     <LinearLayout
-        android:layout_width="150dp"
+        android:layout_width="wrap_content"
         android:layout_height="150dp"
         android:gravity="center_vertical|center_horizontal"
         android:orientation="vertical">
@@ -18,15 +18,15 @@
             android:progress="50"
             android:layout_gravity="center_horizontal"/>
 
-        <TextView
+        <Button
             android:id="@android:id/message"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="15dp"
             android:gravity="center"
             android:textColor="@android:color/black"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:visibility="visible"/>
     </LinearLayout>
 
