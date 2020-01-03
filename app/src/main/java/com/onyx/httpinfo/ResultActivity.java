@@ -1,13 +1,14 @@
-package com.example.httpinfo;
+package com.onyx.httpinfo;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.Bundle;
 import android.os.PowerManager;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.example.httpinfo.widget.LoadingDialog;
+
+import com.onyx.httpinfo.widget.LoadingDialog;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,8 +24,7 @@ public class ResultActivity extends AppCompatActivity {
     private LoadingDialog loadingDialog;
     private TextView textView;
     private PowerManager.WakeLock wakeLock = null;
-    public static String[] pingUrls = new String[]{"61.135.169.121", "https://www.qq.com",
-            "https://www.163.com", "https://www.sohu.com"};
+    public static String[] pingUrls = new String[]{"61.135.169.121", "https://www.qq.com", "https://www.163.com", "https://www.sohu.com","http://log.onyx-international.cn", "http://ip.luojilab.com"};
     private ExecutorService executorService;
 
 

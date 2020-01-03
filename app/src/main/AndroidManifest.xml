@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.httpinfo">
+    package="com.onyx.httpinfo">
     <!-- 网络权限相关 -->
     <uses-permission android:name="android.permission.INTERNET" /> <!-- 网络切换权限相关 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- 网络切换权限相关 -->
@@ -12,7 +12,7 @@
         tools:ignore="ProtectedPermissions" />
 
     <application
-        android:name=".MyApplication"
+        android:name="com.onyx.httpinfo.MyApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -21,8 +21,8 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
         tools:ignore="GoogleAppIndexingWarning">
-        <activity android:name=".ResultActivity"></activity>
-        <activity android:name=".MainActivity">
+        <activity android:name="com.onyx.httpinfo.ResultActivity"></activity>
+        <activity android:name="com.onyx.httpinfo.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

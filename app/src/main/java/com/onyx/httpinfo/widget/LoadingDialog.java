@@ -1,11 +1,11 @@
-package com.example.httpinfo.widget;
+package com.onyx.httpinfo.widget;
 
 import android.app.Dialog;
 import android.content.Context;
 import android.view.View;
 import android.widget.TextView;
 
-import com.example.httpinfo.R;
+import com.onyx.httpinfo.R;
 
 public class LoadingDialog extends Dialog {
 

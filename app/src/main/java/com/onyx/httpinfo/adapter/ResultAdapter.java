@@ -1,9 +1,9 @@
-package com.example.httpinfo.adapter;
+package com.onyx.httpinfo.adapter;
 
 import android.content.Context;
 
-import com.example.httpinfo.R;
-import com.example.httpinfo.ResultBean;
+import com.onyx.httpinfo.R;
+import com.onyx.httpinfo.ResultBean;
 
 
 /**

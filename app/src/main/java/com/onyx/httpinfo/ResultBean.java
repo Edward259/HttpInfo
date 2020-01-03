@@ -1,4 +1,4 @@
-package com.example.httpinfo;
+package com.onyx.httpinfo;
 
 import java.io.Serializable;
 

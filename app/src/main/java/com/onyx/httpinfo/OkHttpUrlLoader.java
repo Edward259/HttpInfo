@@ -1,4 +1,4 @@
-package com.example.httpinfo;
+package com.onyx.httpinfo;
 
 import android.support.annotation.NonNull;
 

@@ -1,4 +1,4 @@
-package com.example.httpinfo.adapter;
+package com.onyx.httpinfo.adapter;
 
 import android.content.Context;
 import android.os.Bundle;

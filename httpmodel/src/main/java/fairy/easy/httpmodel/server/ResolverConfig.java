@@ -376,7 +376,7 @@ findWin(InputStream in, Locale locale) {
 private boolean
 findWin(InputStream in) {
 	boolean found;
-	String property = "com.example.httpinfo.dns.windows.parse.buffer";
+	String property = "com.onyx.httpinfo.dns.windows.parse.buffer";
 	final int defaultBufSize = 8 * 1024;
 	int bufSize = Integer.getInteger(property, defaultBufSize);
 	BufferedInputStream b = new BufferedInputStream(in, bufSize);
