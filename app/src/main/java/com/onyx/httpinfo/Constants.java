@@ -12,4 +12,6 @@ public class Constants {
     public static String FEEDBACK_ACTION = "com.onyx.feedback";
     public static final String FEEDBACK_PACKET_NAME = "com.onyx.feedback";
     public static final String FEEDBACK_SERVICE_NAME = "com.onyx.feedback.service.FeedbackService";
+    public static String FEEDBACK_TITLE = "feedback_title";
+    public static String FEEDBACK_STATUS_KEY = "feedback_status";
 }

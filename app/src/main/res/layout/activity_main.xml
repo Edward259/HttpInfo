@@ -15,6 +15,7 @@
         android:paddingLeft="10dp"
         android:paddingTop="30dp"
         android:layout_width="0dp"
+        android:textSize="20sp"
         android:layout_height="wrap_content"/>
 
     <Button

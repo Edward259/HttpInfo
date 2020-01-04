@@ -140,7 +140,7 @@ public class ResultActivity extends AppCompatActivity {
                 @Override
                 public void onConfirm() {
                     sendFeedback();
-                    disDialog();
+                    loadingDialog.setText("反馈中...");
                 }
             });
         }
@@ -152,6 +152,7 @@ public class ResultActivity extends AppCompatActivity {
     private void sendFeedback() {
         feedbackService = new Intent();
         feedbackService.setComponent(new ComponentName(Constants.FEEDBACK_PACKET_NAME, Constants.FEEDBACK_SERVICE_NAME));
+        feedbackService.putExtra(Constants.FEEDBACK_TITLE, "Network Detection");
         feedbackService.putExtra(Constants.FEEDBACK_DES, pingResultStatistics());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(feedbackService);
@@ -171,9 +172,16 @@ public class ResultActivity extends AppCompatActivity {
         feedbackReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+                boolean succeed = (boolean) intent.getExtras().get(Constants.FEEDBACK_STATUS_KEY);
                 if (!isFinishing()) {
-                    Toast.makeText(ResultActivity.this, "反馈成功！", Toast.LENGTH_SHORT).show();
+                    if (succeed) {
+                        Toast.makeText(ResultActivity.this, "反馈成功！", Toast.LENGTH_SHORT).show();
+                        finish();
+                    } else {
+                        Toast.makeText(ResultActivity.this, "反馈失败，请重试", Toast.LENGTH_SHORT).show();
+                    }
                 }
+                disDialog();
                 if (feedbackService != null) {
                     stopService();
                 }
@@ -212,7 +220,6 @@ public class ResultActivity extends AppCompatActivity {
         }
         JSONObject jsonObject = new JSONObject();
         try {
-            jsonObject.put("title", "Network Detection");
             for (String key : resultMap.keySet()) {
                 jsonObject.put(key, resultMap.get(key).toString());
             }

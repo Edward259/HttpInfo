@@ -119,13 +119,13 @@ public class PingResultBean {
     @Override
     public String toString() {
         return "{" +
-                "url:'" + url + '\'' +
-                ", sendCount:" + sendCount +
-                ", receiverTime:" + receiverTime +
-                ", lossTime;" + lossTime +
-                ", rttAvg:" + rttAvg +
-                ", rttMax:" + rttMax +
-                ", rttMin:" + rttMin +
+                "\"url\":" +"\"" +  url + "\"" +
+                ", \"sendCount\":" + sendCount +
+                ", \"receiverTime\":" + receiverTime +
+                ", \"lossTime\":" + lossTime +
+                ", \"rttAvg\":" + rttAvg +
+                ", \"rttMax\":" + rttMax +
+                ", \"rttMin\":" + rttMin +
                 '}';
     }
 }
