@@ -9,6 +9,7 @@ import android.net.DhcpInfo;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.Network;
+import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
@@ -74,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
         System.out.println(intToIp(dhcpInfo.dns1));
         System.out.println(intToIp(dhcpInfo.dns2));
         System.out.println(dhcpInfo.leaseDuration);
-        sb.append("Wifi信息：");
+        sb.append("Wifi信息：" + (!isWifiConnect() ? "未连接" : wifiInfo.getSSID().substring(1, wifiInfo.getSSID().length() - 1)));
         sb.append("\nIpAddress：" + intToIp(wifiInfo.getIpAddress()));
         sb.append("\nMacAddress：" + wifiInfo.getMacAddress());
         infoTv.setText(sb.toString());
@@ -86,9 +87,13 @@ public class MainActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     private String getNetMask() {
+        String netMask = "0.0.0.0";
         ConnectivityManager connectivityManager = (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
         Network network = (connectivityManager).getActiveNetwork();
         LinkProperties linkProperties = connectivityManager.getLinkProperties(network);
+        if (linkProperties == null) {
+            return netMask;
+        }
         List<LinkAddress> linkAddressList = linkProperties.getLinkAddresses();
         LinkAddress linkAddress = linkAddressList.get(0);
         String ipAddress = linkAddress.getAddress().getHostAddress();
@@ -111,13 +116,21 @@ public class MainActivity extends AppCompatActivity {
         InetAddress netAddr = null;
         try {
             netAddr = InetAddress.getByAddress(bytes);
+            netMask = netAddr.getHostAddress();
             System.out.println("Mask=" + netAddr.getHostAddress());
         } catch (UnknownHostException e) {
             e.printStackTrace();
+            return netMask;
         }
-        return "";
+        return netAddr == null ? netMask : netAddr.getHostAddress();
     }
 
+
+    public boolean isWifiConnect() {
+        ConnectivityManager connManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo mWifiInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        return mWifiInfo.isConnected();
+    }
 
     @Override
     protected void onDestroy() {

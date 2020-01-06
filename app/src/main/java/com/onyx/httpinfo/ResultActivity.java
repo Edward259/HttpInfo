@@ -16,7 +16,6 @@ import android.widget.Toast;
 import com.onyx.httpinfo.bean.PingResultBean;
 import com.onyx.httpinfo.widget.LoadingDialog;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -44,6 +43,7 @@ public class ResultActivity extends AppCompatActivity {
     private ExecutorService executorService;
     private Intent feedbackService;
     private BroadcastReceiver feedbackReceiver;
+    private boolean needDetection = true;
 
     @SuppressLint("InvalidWakeLockTag")
     @Override
@@ -88,7 +88,7 @@ public class ResultActivity extends AppCompatActivity {
                 return;
             }
             runOnUiThread(() -> {
-                if (!ResultActivity.this.isFinishing()) {
+                if (!ResultActivity.this.isFinishing() && needDetection) {
                     getNetStatusInfo();
                 }
             });
@@ -135,12 +135,13 @@ public class ResultActivity extends AppCompatActivity {
         if (null == loadingDialog) {
             loadingDialog = new LoadingDialog(this);
             loadingDialog.setText("结束评测并发送错误反馈");
-            loadingDialog.setCancelable(true);
+            loadingDialog.setCanceledOnTouchOutside(false);
             loadingDialog.setOnConfirmListener(new LoadingDialog.onConfirmClickListener() {
                 @Override
                 public void onConfirm() {
                     sendFeedback();
                     loadingDialog.setText("反馈中...");
+                    needDetection = false;
                 }
             });
         }
@@ -234,6 +235,7 @@ public class ResultActivity extends AppCompatActivity {
             loadingDialog.cancel();
             loadingDialog.dismiss();
             loadingDialog = null;
+            needDetection = false;
         }
     }
 
