@@ -46,7 +46,6 @@ public class Ping {
     }
 
     private PingBean getIPFromUrl() {
-        long startTime = System.currentTimeMillis();
         String domain = getDomain(url);
         if (TextUtils.isEmpty(domain)) {
             pingBean.setError(BaseData.HTTP_ERROR);
@@ -156,6 +155,8 @@ public class Ping {
     }
 
     private String ping(String command) {
+        Log.e("TAG", "ping: ");
+        long startTime = System.currentTimeMillis();
         Process process = null;
         try {
             process = Runtime.getRuntime().exec(command);
@@ -173,6 +174,7 @@ public class Ping {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
+            Log.e("TAG", "ping: " + (startTime - System.currentTimeMillis()));
             if (null != process) {
                 process.destroy();
             }

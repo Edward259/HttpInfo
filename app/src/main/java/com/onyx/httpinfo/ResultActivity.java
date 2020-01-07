@@ -12,11 +12,11 @@ import android.os.Environment;
 import android.os.PowerManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.onyx.httpinfo.bean.PingResultBean;
-import com.onyx.httpinfo.utils.NetworkInfoUtils;
 import com.onyx.httpinfo.widget.LoadingDialog;
 import com.onyx.httpinfo.widget.ResultDialog;
 
@@ -25,7 +25,9 @@ import org.json.JSONArray;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,7 @@ public class ResultActivity extends AppCompatActivity {
     private PowerManager.WakeLock wakeLock = null;
     public static String[] pingUrls = new String[]{"61.135.169.121", "https://www.qq.com", "https://www.163.com", "https://www.sohu.com", "http://log.onyx-international.cn", "http://ip.luojilab.com"};
     public static String RESULT_PATH = Environment.getExternalStorageDirectory() + File.separator + "Download";
+    public String fileSavePath = "";
     private List<PingResultBean> pingResults = new ArrayList<>();
     private Map<String, PingResultBean> resultMap = new HashMap<>();
     private ExecutorService executorService;
@@ -77,42 +80,38 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private void getNetStatusInfo() {
-        if (!NetworkInfoUtils.isWifiConnect(this)) {
-            Toast.makeText(this, "网络中断，结束评测！", Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
+        Log.i(getLocalClassName(), "getNetStatusInfo");
         executorService = Executors.newSingleThreadExecutor();
         executorService.submit(() -> {
+            Log.i(getLocalClassName(), "getNetStatusInfo thread");
             for (int i = 0; i < pingUrls.length; i++) {
-                position = i;
+                getPing(i);
                 try {
-                    Thread.sleep(300);
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                getPing(position);
             }
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                return;
-            }
+            Log.i(getLocalClassName(), "before getNetStatusInfo thread");
             runOnUiThread(() -> {
+                Log.i(getLocalClassName(), "in getNetStatusInfo thread");
                 if (!ResultActivity.this.isFinishing() && needDetection) {
                     getNetStatusInfo();
                 }
             });
+            Log.i(getLocalClassName(), "getNetStatusInfo thread finished");
         });
         executorService.shutdown();
     }
 
     private void getPing(int position) {
+        Log.i(getLocalClassName(), "getPing");
         Ping ping = new Ping(pingUrls[position]);
         PingBean pingBean = ping.getPingInfo();
         addPingResult(pingBean, pingUrls[position]);
+        Log.i(getLocalClassName(), "before getPing thread");
         runOnUiThread(() -> {
+            Log.i(getLocalClassName(), "in: getPing thread: " + pingBean);
             if (pingBean != null) {
                 PingResultBean pingResultBean = resultMap.get(pingBean.getAddress());
                 if (pingResultBean != null && pingResultBean.getSendCount() > 1) {
@@ -125,6 +124,7 @@ public class ResultActivity extends AppCompatActivity {
                     pingBean.setAllTime((int) pingResultBean.getAllTime());
                 }
                 textView.setText(pingBean.toString());
+                Log.i(getLocalClassName(), "after getPing thread");
             }
         });
     }
@@ -176,6 +176,7 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private void sendFeedback() {
+        saveToLocal();
         feedbackService = new Intent();
         feedbackService.setComponent(new ComponentName(Constants.FEEDBACK_PACKET_NAME, Constants.FEEDBACK_SERVICE_NAME));
         feedbackService.putExtra(Constants.FEEDBACK_TITLE, "Network Detection");
@@ -201,7 +202,6 @@ public class ResultActivity extends AppCompatActivity {
                 boolean succeed = (boolean) intent.getExtras().get(Constants.FEEDBACK_STATUS_KEY);
                 if (!isFinishing()) {
                     ResultDialog dialog = new ResultDialog(ResultActivity.this);
-                    dialog.setPath("结果保存路径：" + RESULT_PATH);
                     if (succeed) {
                         dialog.setResult("反馈成功！");
                         dialog.setOnConfirmListener(new ResultDialog.onConfirmClickListener() {
@@ -219,7 +219,7 @@ public class ResultActivity extends AppCompatActivity {
                             }
                         });
                     }
-                    saveToLocal();
+                    dialog.setPath("结果保存路径：" + fileSavePath);
                     dialog.show();
                 }
                 disDialog();
@@ -235,7 +235,8 @@ public class ResultActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                File file = new File(RESULT_PATH, "Network Detection.txt");
+                File file = new File(RESULT_PATH, ("HttpInfo-" + new SimpleDateFormat("yyyy-MM-dd HH-mm").format(new Date()) + "." + "txt"));
+                fileSavePath = file.getAbsolutePath();
                 if (!file.exists()) {
                     file.getParentFile().mkdirs();
                     try {
