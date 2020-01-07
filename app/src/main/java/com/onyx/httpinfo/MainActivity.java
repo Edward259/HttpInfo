@@ -4,12 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
 import android.net.DhcpInfo;
-import android.net.LinkAddress;
-import android.net.LinkProperties;
-import android.net.Network;
-import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
@@ -20,10 +15,9 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.List;
+import com.onyx.httpinfo.utils.NetworkInfoUtils;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -37,18 +31,33 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         setTitle("网络诊断");
+        requestPermissions();
+        initData();
+        initView();
+    }
+
+    private void requestPermissions() {
         //获取手机强度使用
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
         }
+    }
 
-        infoTv = findViewById(R.id.main_activity_tv_info);
+    private void initData() {
         wifiManager = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE));
         dhcpInfo = wifiManager.getDhcpInfo();
         wifiInfo = wifiManager.getConnectionInfo();
+    }
+
+    private void initView() {
+        infoTv = findViewById(R.id.main_activity_tv_info);
         findViewById(R.id.main_activity_start_btn).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (!NetworkInfoUtils.isWifiConnect(MainActivity.this)) {
+                    Toast.makeText(MainActivity.this, "网络未连接，请检查后重试！", Toast.LENGTH_LONG).show();
+                    return;
+                }
                 Intent intent = new Intent(getApplicationContext(), ResultActivity.class);
                 startActivity(intent);
             }
@@ -59,10 +68,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        loadNetworkInfo();
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private void loadNetworkInfo() {
         StringBuilder sb = new StringBuilder();
         sb.append("网络信息：");
         sb.append("\nipAddress：" + intToIp(dhcpInfo.ipAddress));
-        sb.append("\nnetmask：" + getNetMask());
+        sb.append("\nnetmask：" + NetworkInfoUtils.getNetMask(this));
         sb.append("\ngateway：" + intToIp(dhcpInfo.gateway));
         sb.append("\nserverAddress：" + intToIp(dhcpInfo.serverAddress));
         sb.append("\ndns1：" + intToIp(dhcpInfo.dns1));
@@ -75,61 +89,15 @@ public class MainActivity extends AppCompatActivity {
         System.out.println(intToIp(dhcpInfo.dns1));
         System.out.println(intToIp(dhcpInfo.dns2));
         System.out.println(dhcpInfo.leaseDuration);
-        sb.append("Wifi信息：" + (!isWifiConnect() ? "未连接" : wifiInfo.getSSID().substring(1, wifiInfo.getSSID().length() - 1)));
+        sb.append("Wifi信息：" + (!NetworkInfoUtils.isWifiConnect(this) ? "未连接" : wifiInfo.getSSID().substring(1, wifiInfo.getSSID().length() - 1)));
         sb.append("\nIpAddress：" + intToIp(wifiInfo.getIpAddress()));
-        sb.append("\nMacAddress：" + wifiInfo.getMacAddress());
+        sb.append("\nMacAddress：" + NetworkInfoUtils.getMacAddress());
         infoTv.setText(sb.toString());
     }
+
     private String intToIp(int paramInt) {
         return (paramInt & 0xFF) + "." + (0xFF & paramInt >> 8) + "." + (0xFF & paramInt >> 16) + "."
                 + (0xFF & paramInt >> 24);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    private String getNetMask() {
-        String netMask = "0.0.0.0";
-        ConnectivityManager connectivityManager = (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
-        Network network = (connectivityManager).getActiveNetwork();
-        LinkProperties linkProperties = connectivityManager.getLinkProperties(network);
-        if (linkProperties == null) {
-            return netMask;
-        }
-        List<LinkAddress> linkAddressList = linkProperties.getLinkAddresses();
-        LinkAddress linkAddress = linkAddressList.get(0);
-        String ipAddress = linkAddress.getAddress().getHostAddress();
-        String[] parts = ipAddress.split("/");
-        String ip = parts[0];
-        int prefix;
-        if (parts.length < 2) {
-            prefix = 0;
-        } else {
-            prefix = Integer.parseInt(parts[1]);
-        }
-        int mask = 0xffffffff << (32 - prefix);
-        System.out.println("Prefix=" + prefix);
-        System.out.println("Address=" + ip);
-
-        int value = mask;
-        byte[] bytes = new byte[]{
-                (byte) (value >>> 24), (byte) (value >> 16 & 0xff), (byte) (value >> 8 & 0xff), (byte) (value & 0xff)};
-
-        InetAddress netAddr = null;
-        try {
-            netAddr = InetAddress.getByAddress(bytes);
-            netMask = netAddr.getHostAddress();
-            System.out.println("Mask=" + netAddr.getHostAddress());
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-            return netMask;
-        }
-        return netAddr == null ? netMask : netAddr.getHostAddress();
-    }
-
-
-    public boolean isWifiConnect() {
-        ConnectivityManager connManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo mWifiInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-        return mWifiInfo.isConnected();
     }
 
     @Override
