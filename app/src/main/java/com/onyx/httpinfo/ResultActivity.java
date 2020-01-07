@@ -77,6 +77,11 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private void getNetStatusInfo() {
+        if (!NetworkInfoUtils.isWifiConnect(this)) {
+            Toast.makeText(this, "网络中断，结束评测！", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
         executorService = Executors.newSingleThreadExecutor();
         executorService.submit(() -> {
             for (int i = 0; i < pingUrls.length; i++) {
@@ -104,11 +109,6 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private void getPing(int position) {
-        if (!NetworkInfoUtils.isWifiConnect(this)) {
-            Toast.makeText(this, "网络中断，结束评测！", Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
         Ping ping = new Ping(pingUrls[position]);
         PingBean pingBean = ping.getPingInfo();
         addPingResult(pingBean, pingUrls[position]);
