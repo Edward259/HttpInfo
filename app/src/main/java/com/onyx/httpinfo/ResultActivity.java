@@ -8,17 +8,23 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.PowerManager;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.onyx.httpinfo.bean.PingResultBean;
+import com.onyx.httpinfo.utils.NetworkInfoUtils;
 import com.onyx.httpinfo.widget.LoadingDialog;
+import com.onyx.httpinfo.widget.ResultDialog;
 
-import org.json.JSONException;
-import org.json.JSONObject;
+import org.json.JSONArray;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +44,7 @@ public class ResultActivity extends AppCompatActivity {
     private TextView textView;
     private PowerManager.WakeLock wakeLock = null;
     public static String[] pingUrls = new String[]{"61.135.169.121", "https://www.qq.com", "https://www.163.com", "https://www.sohu.com", "http://log.onyx-international.cn", "http://ip.luojilab.com"};
+    public static String RESULT_PATH = Environment.getExternalStorageDirectory() + File.separator + "Download";
     private List<PingResultBean> pingResults = new ArrayList<>();
     private Map<String, PingResultBean> resultMap = new HashMap<>();
     private ExecutorService executorService;
@@ -97,11 +104,26 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private void getPing(int position) {
+        if (!NetworkInfoUtils.isWifiConnect(this)) {
+            Toast.makeText(this, "网络中断，结束评测！", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
         Ping ping = new Ping(pingUrls[position]);
         PingBean pingBean = ping.getPingInfo();
         addPingResult(pingBean, pingUrls[position]);
         runOnUiThread(() -> {
             if (pingBean != null) {
+                PingResultBean pingResultBean = resultMap.get(pingBean.getAddress());
+                if (pingResultBean != null && pingResultBean.getSendCount() > 1) {
+                    pingBean.setTransmitted(pingResultBean.getSendCount());
+                    pingBean.setReceive(pingResultBean.getReceiverTime());
+                    pingBean.setLossRate((float) pingResultBean.getLossTime() / pingResultBean.getSendCount() * 100);
+                    pingBean.setRttMin(pingResultBean.getRttMin());
+                    pingBean.setRttMax(pingResultBean.getRttMax());
+                    pingBean.setRttAvg(pingResultBean.getRttAvg());
+                    pingBean.setAllTime((int) pingResultBean.getAllTime());
+                }
                 textView.setText(pingBean.toString());
             }
         });
@@ -110,6 +132,9 @@ public class ResultActivity extends AppCompatActivity {
     private void addPingResult(PingBean pingBean, String url) {
         PingResultBean pingResultBean = new PingResultBean(url, pingBean.getReceive() == 1, pingBean.getRttAvg(), pingBean.getRttMax(), pingBean.getRttMin());
         pingResults.add(pingResultBean);
+        if (pingResults.size() > pingUrls.length  && pingResults.size() % pingUrls.length== 0) {
+            pingResultStatistics();
+        }
     }
 
     @SuppressLint("InvalidWakeLockTag")
@@ -175,12 +200,27 @@ public class ResultActivity extends AppCompatActivity {
             public void onReceive(Context context, Intent intent) {
                 boolean succeed = (boolean) intent.getExtras().get(Constants.FEEDBACK_STATUS_KEY);
                 if (!isFinishing()) {
+                    ResultDialog dialog = new ResultDialog(ResultActivity.this);
+                    dialog.setPath("结果保存路径：" + RESULT_PATH);
                     if (succeed) {
-                        Toast.makeText(ResultActivity.this, "反馈成功！", Toast.LENGTH_SHORT).show();
-                        finish();
+                        dialog.setResult("反馈成功！");
+                        dialog.setOnConfirmListener(new ResultDialog.onConfirmClickListener() {
+                            @Override
+                            public void onConfirm() {
+                                finish();
+                            }
+                        });
                     } else {
-                        Toast.makeText(ResultActivity.this, "反馈失败，请重试", Toast.LENGTH_SHORT).show();
+                        dialog.setResult("反馈失败，请重试");
+                        dialog.setOnConfirmListener(new ResultDialog.onConfirmClickListener() {
+                            @Override
+                            public void onConfirm() {
+                                dialog.dismiss();
+                            }
+                        });
                     }
+                    saveToLocal();
+                    dialog.show();
                 }
                 disDialog();
                 if (feedbackService != null) {
@@ -189,6 +229,36 @@ public class ResultActivity extends AppCompatActivity {
             }
         };
         registerReceiver(feedbackReceiver, new IntentFilter(Constants.FEEDBACK_ACTION));
+    }
+
+    private void saveToLocal() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                File file = new File(RESULT_PATH, "Network Detection.txt");
+                if (!file.exists()) {
+                    file.getParentFile().mkdirs();
+                    try {
+                        file.createNewFile();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                FileOutputStream fos = null;
+                try {
+                    fos = new FileOutputStream(file);
+                    fos.write(getResult().getBytes());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        fos.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
     }
 
     private void unregisterReceiver() {
@@ -219,15 +289,16 @@ public class ResultActivity extends AppCompatActivity {
             }
             originResult.setRttMax(Math.max(result.getRttMax(), originResult.getRttMax()));
         }
-        JSONObject jsonObject = new JSONObject();
-        try {
-            for (String key : resultMap.keySet()) {
-                jsonObject.put(key, resultMap.get(key).toString());
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
+        return getResult();
+    }
+
+    @NonNull
+    private String getResult() {
+        JSONArray array = new JSONArray();
+        for (String key : resultMap.keySet()) {
+            array.put(resultMap.get(key).toJson());
         }
-        return jsonObject.toString();
+        return array.toString();
     }
 
     private void disDialog() {

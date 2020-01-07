@@ -1,5 +1,8 @@
 package com.onyx.httpinfo.bean;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 /**
  * Created by Edward.
  * Date: 2020/1/3
@@ -114,6 +117,22 @@ public class PingResultBean {
 
     public void increaseReceiverTime() {
         receiverTime++;
+    }
+
+    public JSONObject toJson() {
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put("url", url);
+            jsonObject.put("sendCount", sendCount);
+            jsonObject.put("receiverTime", receiverTime);
+            jsonObject.put("lossTime", lossTime);
+            jsonObject.put("rttAvg", rttAvg);
+            jsonObject.put("rttMax", rttMax);
+            jsonObject.put("rttMin", rttMin);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return jsonObject;
     }
 
     @Override

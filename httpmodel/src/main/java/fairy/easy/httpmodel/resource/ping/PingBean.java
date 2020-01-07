@@ -150,18 +150,17 @@ public class PingBean extends BaseBean {
     @NonNull
     @Override
     public String toString() {
-        return PingData.ADDRESS + ":" + address + "\n" +
-                PingData.ERROR + ":" + error + "\n"+
-                PingData.IP + ":" + ip + "\n"+
-                PingData.TTL + ":" + ttl + "\n"+
-                PingData.TRANSMITTED + ":" + transmitted + "\n"+
-                PingData.RECEIVE + ":" + receive + "\n"+
-                PingData.LOSSRATE + ":" + lossRate+"%" + "\n"+
-                PingData.RTTMIN + ":" + rttMin+"ms" + "\n"+
-                PingData.RTTAVG + ":" + rttAvg+"ms" + "\n"+
-                PingData.RTTMAX + ":" + rttMax+"ms" + "\n"+
-                PingData.RTTMDEV + ":" + rttMDev+"ms" + "\n"+
-                PingData.ALLTIME + ":" + allTime+"ms" + "\n" ;
+        return PingData.ADDRESS_CN + ":" + address + "\n" +
+                PingData.ERROR_CN + ":" + error + "\n" +
+                PingData.IP_CN + ":" + ip + "\n" +
+                PingData.TTL_CN + ":" + ttl + "\n" +
+                PingData.TRANSMITTED_CN + ":" + transmitted + "\n" +
+                PingData.RECEIVE_CN + ":" + receive + "\n" +
+                PingData.LOSSRATE_CN + ":" + lossRate + "%" + "\n" +
+                PingData.RTTMIN_CN + ":" + rttMin + "ms" + "\n" +
+                PingData.RTTAVG_CN + ":" + rttAvg + "ms" + "\n" +
+                PingData.RTTMAX_CN + ":" + rttMax + "ms" + "\n" +
+                PingData.ALLTIME_CN + ":" + allTime + "ms" + "\n";
     }
 
     public static class PingData {
