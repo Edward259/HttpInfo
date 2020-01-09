@@ -155,7 +155,6 @@ public class Ping {
     }
 
     private String ping(String command) {
-        Log.e("TAG", "ping: ");
         long startTime = System.currentTimeMillis();
         Process process = null;
         try {
@@ -174,7 +173,6 @@ public class Ping {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            Log.e("TAG", "ping: " + (startTime - System.currentTimeMillis()));
             if (null != process) {
                 process.destroy();
             }

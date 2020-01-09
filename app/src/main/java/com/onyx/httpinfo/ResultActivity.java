@@ -13,14 +13,22 @@ import android.os.PowerManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.onyx.httpinfo.bean.PingResultBean;
 import com.onyx.httpinfo.widget.LoadingDialog;
 import com.onyx.httpinfo.widget.ResultDialog;
+import com.qiniu.android.netdiag.Output;
+import com.qiniu.android.netdiag.Ping;
+import com.qiniu.android.netdiag.TcpPing;
+import com.qiniu.android.netdiag.TraceRoute;
 
 import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -31,29 +39,34 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-import fairy.easy.httpmodel.resource.ping.PingBean;
 import fairy.easy.httpmodel.util.NetWork;
-import fairy.easy.httpmodel.util.Ping;
 
 
 public class ResultActivity extends AppCompatActivity {
 
     private int position = 0;
     private LoadingDialog loadingDialog;
-    private TextView textView;
+    private TextView tvResult;
     private PowerManager.WakeLock wakeLock = null;
-    public static String[] pingUrls = new String[]{"61.135.169.121", "https://www.qq.com", "https://www.163.com", "https://www.sohu.com", "http://log.onyx-international.cn", "http://ip.luojilab.com"};
+    public static String[] pingUrls = new String[]{"61.135.169.121", "www.qq.com", "www.163.com", "www.sohu.com", "log.onyx-international.cn", "ip.luojilab.com"};
     public static String RESULT_PATH = Environment.getExternalStorageDirectory() + File.separator + "Download";
     public String fileSavePath = "";
     private List<PingResultBean> pingResults = new ArrayList<>();
+    private List<PingResultBean> tcpPingResults = new ArrayList<>();
     private Map<String, PingResultBean> resultMap = new HashMap<>();
-    private ExecutorService executorService;
+    private Map<String, PingResultBean> tcpResultMap = new HashMap<>();
+    private Map<String, String> traceRouteMap = new HashMap<>();
     private Intent feedbackService;
     private BroadcastReceiver feedbackReceiver;
     private boolean needDetection = true;
+    private String pingUrl;
+    private boolean pingComplete = false;
+    private boolean tcpPingComplete = false;
+    private boolean traceRouteComplete = false;
+    private boolean isFirst = true;
+    private boolean showTcp = false;
+    private CheckBox showTcpCheckbox;
 
     @SuppressLint("InvalidWakeLockTag")
     @Override
@@ -61,79 +74,125 @@ public class ResultActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_result);
         setTitle("评测结果");
-        textView = findViewById(R.id.status_tv);
+        initView();
         initData();
         if (!NetWork.isNetworkAvailable(ResultActivity.this)) {
             Toast.makeText(ResultActivity.this, "NETWORK_ERROR", Toast.LENGTH_LONG).show();
             return;
         }
-        showDialog();
         acquireWakeLock();
-        getNetStatusInfo();
+        startDiagnose();
+        showDialog();
         registerReceiver();
+    }
+
+    private void initView() {
+        tvResult = findViewById(R.id.status_tv);
+        showTcpCheckbox = findViewById(R.id.show_tcp);
+        showTcpCheckbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                String s;
+                showTcp = isChecked;
+                if (isChecked) {
+                    s = resultMap.get(pingUrl).toString();
+                } else {
+                    s = tcpResultMap.get(pingUrl).toString();
+                }
+                tvResult.setText(s);
+            }
+        });
     }
 
     private void initData() {
         for (String pingUrl : pingUrls) {
             resultMap.put(pingUrl, new PingResultBean(pingUrl));
+            tcpResultMap.put(pingUrl, new PingResultBean(pingUrl));
         }
     }
 
-    private void getNetStatusInfo() {
-        Log.i(getLocalClassName(), "getNetStatusInfo");
-        executorService = Executors.newSingleThreadExecutor();
-        executorService.submit(() -> {
-            Log.i(getLocalClassName(), "getNetStatusInfo thread");
-            for (int i = 0; i < pingUrls.length; i++) {
-                getPing(i);
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+    private void startDiagnose() {
+        if (((pingComplete && tcpPingComplete) || isFirst) && needDetection) {
+            Log.i(getLocalClassName(), "getPing");
+            pingUrl = pingUrls[position];
+            if (++position > pingUrls.length - 1) {
+                position = 0;
             }
-            Log.i(getLocalClassName(), "before getNetStatusInfo thread");
-            runOnUiThread(() -> {
-                Log.i(getLocalClassName(), "in getNetStatusInfo thread");
-                if (!ResultActivity.this.isFinishing() && needDetection) {
-                    getNetStatusInfo();
+            pingComplete = false;
+            tcpPingComplete = false;
+            traceRouteComplete = false;
+            Ping.start(pingUrl, new Output() {
+                @Override
+                public void write(String line) {
+                    Log.e("TAG", "Ping write: " + line);
+                }
+            }, new Ping.Callback() {
+                @Override
+                public void complete(com.qiniu.android.netdiag.Ping.Result r) {
+                    pingComplete = true;
+                    PingResultBean pingResultBean = new PingResultBean(pingUrl, r.count, r.dropped, r.avg, r.max, r.min, r.ip);
+                    pingResults.add(pingResultBean);
+                    pingResultStatistics(resultMap, pingResults);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!showTcp) {
+                                tvResult.setText(resultMap.get(pingUrl).toString());
+                            }
+                            startDiagnose();
+                        }
+                    });
                 }
             });
-            Log.i(getLocalClassName(), "getNetStatusInfo thread finished");
-        });
-        executorService.shutdown();
-    }
-
-    private void getPing(int position) {
-        Log.i(getLocalClassName(), "getPing");
-        Ping ping = new Ping(pingUrls[position]);
-        PingBean pingBean = ping.getPingInfo();
-        addPingResult(pingBean, pingUrls[position]);
-        Log.i(getLocalClassName(), "before getPing thread");
-        runOnUiThread(() -> {
-            Log.i(getLocalClassName(), "in: getPing thread: " + pingBean);
-            if (pingBean != null) {
-                PingResultBean pingResultBean = resultMap.get(pingBean.getAddress());
-                if (pingResultBean != null && pingResultBean.getSendCount() > 1) {
-                    pingBean.setTransmitted(pingResultBean.getSendCount());
-                    pingBean.setReceive(pingResultBean.getReceiverTime());
-                    pingBean.setLossRate((float) pingResultBean.getLossTime() / pingResultBean.getSendCount() * 100);
-                    pingBean.setRttMin(pingResultBean.getRttMin());
-                    pingBean.setRttMax(pingResultBean.getRttMax());
-                    pingBean.setRttAvg(pingResultBean.getRttAvg());
-                    pingBean.setAllTime((int) pingResultBean.getAllTime());
+            TcpPing.start(pingUrl, new Output() {
+                @Override
+                public void write(String line) {
+                    Log.e("TAG", "TcpPing write: " + line);
                 }
-                textView.setText(pingBean.toString());
-                Log.i(getLocalClassName(), "after getPing thread");
+            }, new TcpPing.Callback() {
+                @Override
+                public void complete(TcpPing.Result r) {
+                    tcpPingComplete = true;
+                    Log.e("TAG", "TcpPing count: " + r.count + " droped:" + r.dropped);
+                    PingResultBean pingResultBean = new PingResultBean(pingUrl, r.count, r.dropped, r.avgTime, r.maxTime, r.minTime, r.ip);
+                    tcpPingResults.add(pingResultBean);
+                    pingResultStatistics(tcpResultMap, tcpPingResults);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (showTcp) {
+                                tvResult.setText(tcpResultMap.get(pingUrl).toString());
+                            }
+                            startDiagnose();
+                        }
+                    });
+                }
+            });
+            if (!isFirst) {
+                return;
             }
-        });
-    }
-
-    private void addPingResult(PingBean pingBean, String url) {
-        PingResultBean pingResultBean = new PingResultBean(url, pingBean.getReceive() == 1, pingBean.getRttAvg(), pingBean.getRttMax(), pingBean.getRttMin());
-        pingResults.add(pingResultBean);
-        if (pingResults.size() > pingUrls.length  && pingResults.size() % pingUrls.length== 0) {
-            pingResultStatistics();
+            isFirst = false;
+            for (String url : pingUrls) {
+                TraceRoute.start(url, new Output() {
+                    @Override
+                    public void write(String line) {
+                        Log.e("TAG", "TraceRoute write: " + line);
+                    }
+                }, new TraceRoute.Callback() {
+                    @Override
+                    public void complete(TraceRoute.Result r) {
+                        traceRouteComplete = true;
+                        traceRouteMap.put(pingUrl, r.content());
+                        Log.e("TAG", "TraceRoute ip: " + r.ip + " data:" + r.content());
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                startDiagnose();
+                            }
+                        });
+                    }
+                });
+            }
         }
     }
 
@@ -180,7 +239,8 @@ public class ResultActivity extends AppCompatActivity {
         feedbackService = new Intent();
         feedbackService.setComponent(new ComponentName(Constants.FEEDBACK_PACKET_NAME, Constants.FEEDBACK_SERVICE_NAME));
         feedbackService.putExtra(Constants.FEEDBACK_TITLE, "Network Detection");
-        feedbackService.putExtra(Constants.FEEDBACK_DES, pingResultStatistics());
+        feedbackService.putExtra(Constants.FEEDBACK_DES, getResultString());
+        feedbackService.putExtra(Constants.FEEDBACK_LOCAL_SAVE_PATH, RESULT_PATH + "/HttpInfo-Feedback.zip");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(feedbackService);
         } else {
@@ -235,6 +295,7 @@ public class ResultActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
+                String result = getResultString();
                 File file = new File(RESULT_PATH, ("HttpInfo-" + new SimpleDateFormat("yyyy-MM-dd HH-mm").format(new Date()) + "." + "txt"));
                 fileSavePath = file.getAbsolutePath();
                 if (!file.exists()) {
@@ -248,7 +309,7 @@ public class ResultActivity extends AppCompatActivity {
                 FileOutputStream fos = null;
                 try {
                     fos = new FileOutputStream(file);
-                    fos.write(getResult().getBytes());
+                    fos.write(result.getBytes());
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
@@ -262,26 +323,39 @@ public class ResultActivity extends AppCompatActivity {
         }).start();
     }
 
+    @NonNull
+    private String getResultString() {
+        JSONObject jsonObject = new JSONObject();
+        String result = "";
+        try {
+            jsonObject.put("ping", toJsonArray(resultMap));
+            jsonObject.put("tcpPing", toJsonArray(tcpResultMap));
+            jsonObject.put("traceRoute", traceRouteToJsonArray(traceRouteMap));
+            result = jsonObject.toString();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
     private void unregisterReceiver() {
         if (feedbackReceiver != null) {
             unregisterReceiver(feedbackReceiver);
         }
     }
 
-    private String pingResultStatistics() {
+    private void pingResultStatistics(Map<String, PingResultBean> map, List<PingResultBean> list) {
         PingResultBean originResult;
-        for (PingResultBean result : pingResults) {
-            originResult = resultMap.get(result.getUrl());
-            originResult.increaseSendCount();
-            if (result.isReceiver()) {
-                originResult.increaseReceiverTime();
-            } else {
-                originResult.increaseLossTime();
-            }
+        for (PingResultBean result : list) {
+            originResult = map.get(result.getUrl());
+            originResult.setIp(result.getIp());
+            originResult.increaseSendCount(result.getSendCount());
+            originResult.increaseReceiverTime(result.getReceiverTime());
+            originResult.increaseLossTime(result.getLossTime());
             if (originResult.getAllTime() > 0) {
-                originResult.setAllTime((result.getRttAvg() + originResult.getAllTime()));
+                originResult.setAllTime((result.getRttAvg() * result.getReceiverTime() + originResult.getAllTime()));
             } else {
-                originResult.setAllTime(result.getRttAvg());
+                originResult.setAllTime(result.getRttAvg() * result.getReceiverTime());
             }
             if (originResult.getRttMin() > 0 && result.getRttMin() > 0) {
                 originResult.setRttMin(Math.min(result.getRttMin(), originResult.getRttMin()));
@@ -290,16 +364,30 @@ public class ResultActivity extends AppCompatActivity {
             }
             originResult.setRttMax(Math.max(result.getRttMax(), originResult.getRttMax()));
         }
-        return getResult();
     }
 
     @NonNull
-    private String getResult() {
+    private JSONArray toJsonArray(Map<String, PingResultBean> map) {
         JSONArray array = new JSONArray();
-        for (String key : resultMap.keySet()) {
-            array.put(resultMap.get(key).toJson());
+        for (String key : map.keySet()) {
+            array.put(map.get(key).toJson());
         }
-        return array.toString();
+        return array;
+    }
+
+    @NonNull
+    private JSONArray traceRouteToJsonArray(Map<String, String> map) {
+        JSONArray array = new JSONArray();
+        try {
+            for (String key : map.keySet()) {
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put(key, map.get(key));
+                array.put(jsonObject);
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return array;
     }
 
     private void disDialog() {

@@ -3,6 +3,8 @@ package com.onyx.httpinfo.bean;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import fairy.easy.httpmodel.resource.ping.PingBean;
+
 /**
  * Created by Edward.
  * Date: 2020/1/3
@@ -15,6 +17,7 @@ public class PingResultBean {
     private int receiverTime;
     private int lossTime;
     private boolean isReceiver;
+    private String ip;
     //rtt round trip time
     private float rttAvg;
     private float rttMax;
@@ -27,6 +30,17 @@ public class PingResultBean {
         this.rttAvg = rttAvg;
         this.rttMax = rttMax;
         this.rttMin = rttMin;
+    }
+
+    public PingResultBean(String url, int receiverTime, int lossTime, float rttAvg, float rttMax, float rttMin, String ip) {
+        this.url = url;
+        this.receiverTime = receiverTime;
+        this.lossTime = lossTime;
+        this.sendCount = receiverTime + lossTime;
+        this.rttAvg = rttAvg;
+        this.rttMax = rttMax;
+        this.rttMin = rttMin;
+        this.ip = ip;
     }
 
     public PingResultBean(String url) {
@@ -107,12 +121,32 @@ public class PingResultBean {
         this.rttMin = rttMin;
     }
 
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
+    }
+
     public void increaseSendCount() {
         sendCount++;
     }
 
     public void increaseLossTime() {
         lossTime++;
+    }
+
+    public void increaseReceiverTime(int count) {
+        receiverTime += count;
+    }
+
+    public void increaseSendCount(int count) {
+        sendCount += count;
+    }
+
+    public void increaseLossTime(int count) {
+        lossTime += count;
     }
 
     public void increaseReceiverTime() {
@@ -137,14 +171,41 @@ public class PingResultBean {
 
     @Override
     public String toString() {
-        return "{" +
-                "\"url\":" +"\"" +  url + "\"" +
-                ", \"sendCount\":" + sendCount +
-                ", \"receiverTime\":" + receiverTime +
-                ", \"lossTime\":" + lossTime +
-                ", \"rttAvg\":" + rttAvg +
-                ", \"rttMax\":" + rttMax +
-                ", \"rttMin\":" + rttMin +
-                '}';
+        return PingBean.PingData.ADDRESS_CN + ":" + url + "\n" +
+                PingBean.PingData.IP_CN + ":" + ip + "\n" +
+                PingBean.PingData.TRANSMITTED_CN + ":" + sendCount + "\n" +
+                PingBean.PingData.RECEIVE_CN + ":" + receiverTime + "\n" +
+                PingBean.PingData.LOSSRATE_CN + ":" + (sendCount <= 0 ? 0 : (float)lossTime * 100/ sendCount)+ "%" + "\n" +
+                PingBean.PingData.RTTMIN_CN + ":" + rttMin + "ms" + "\n" +
+                PingBean.PingData.RTTAVG_CN + ":" + rttAvg + "ms" + "\n" +
+                PingBean.PingData.RTTMAX_CN + ":" + rttMax + "ms" + "\n" +
+                PingBean.PingData.ALLTIME_CN + ":" + allTime + "ms" + "\n";
+    }
+
+    public static class PingData {
+        public static final String IP = "ip";
+        public static final String IP_CN = "IP地址";
+        public static final String ADDRESS = "address";
+        public static final String ADDRESS_CN = "网址";
+        public static final String TTL = "ttl";
+        public static final String TTL_CN = "生存时间";
+        public static final String TRANSMITTED = "transmitted";
+        public static final String TRANSMITTED_CN = "发送包";
+        public static final String RECEIVE = "receive";
+        public static final String RECEIVE_CN = "接收包";
+        public static final String LOSSRATE = "lossRate";
+        public static final String LOSSRATE_CN = "丢包率";
+        public static final String RTTMIN = "rttMin";
+        public static final String RTTMIN_CN = "最小RTT";
+        public static final String RTTAVG = "rttAvg";
+        public static final String RTTAVG_CN = "平均RTT";
+        public static final String RTTMAX = "rttMax";
+        public static final String RTTMAX_CN = "最大RTT";
+        public static final String RTTMDEV = "rttMDev";
+        public static final String RTTMDEV_CN = "算术平均偏差RTT";
+        public static final String ERROR = "status";
+        public static final String ERROR_CN = "执行结果";
+        public static final String ALLTIME = "allTime";
+        public static final String ALLTIME_CN = "总消耗时间";
     }
 }
