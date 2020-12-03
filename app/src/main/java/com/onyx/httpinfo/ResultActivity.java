@@ -12,20 +12,27 @@ import android.os.Environment;
 import android.os.PowerManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.GridLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.onyx.httpinfo.bean.PingResultBean;
-import com.onyx.httpinfo.widget.LoadingDialog;
 import com.onyx.httpinfo.widget.ResultDialog;
 import com.qiniu.android.netdiag.Output;
 import com.qiniu.android.netdiag.Ping;
+import com.qiniu.android.netdiag.Task;
 import com.qiniu.android.netdiag.TcpPing;
 import com.qiniu.android.netdiag.TraceRoute;
 
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -46,10 +53,20 @@ import fairy.easy.httpmodel.util.NetWork;
 public class ResultActivity extends AppCompatActivity {
 
     private int position = 0;
-    private LoadingDialog loadingDialog;
-    private TextView tvResult;
     private PowerManager.WakeLock wakeLock = null;
-    public static String[] pingUrls = new String[]{"61.135.169.121", "www.qq.com", "www.163.com", "www.sohu.com", "log.onyx-international.cn", "ip.luojilab.com"};
+    public static String[] pingUrls = new String[]{
+            "61.135.169.121",
+            "www.qq.com",
+            "log.onyx-international.cn",
+            "www.amazon.cn",
+            "ip.luojilab.com",
+            "ddmedia-cdn.igetget.com",
+            "ddmedia-ali.igetget.com",
+            "igetoss-cdn.igetget.c om",
+            "igetoss-ali.igetget.com",
+            "igetcdn.igetget.com",
+            "112.96.109.30"
+    };
     public static String RESULT_PATH = Environment.getExternalStorageDirectory() + File.separator + "Download";
     public String fileSavePath = "";
     private List<PingResultBean> pingResults = new ArrayList<>();
@@ -63,10 +80,11 @@ public class ResultActivity extends AppCompatActivity {
     private String pingUrl;
     private boolean pingComplete = false;
     private boolean tcpPingComplete = false;
-    private boolean traceRouteComplete = false;
     private boolean isFirst = true;
     private boolean showTcp = false;
     private CheckBox showTcpCheckbox;
+    private Button btSendResult;
+    private RecyclerView resultList;
 
     @SuppressLint("InvalidWakeLockTag")
     @Override
@@ -82,26 +100,58 @@ public class ResultActivity extends AppCompatActivity {
         }
         acquireWakeLock();
         startDiagnose();
-        showDialog();
         registerReceiver();
     }
 
     private void initView() {
-        tvResult = findViewById(R.id.status_tv);
         showTcpCheckbox = findViewById(R.id.show_tcp);
+        btSendResult = findViewById(R.id.send_result);
+        resultList = findViewById(R.id.result_list);
+        resultList.setLayoutManager(new GridLayoutManager(this, 3));
+        resultList.setAdapter(new RecyclerView.Adapter() {
+            @NonNull
+            @Override
+            public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
+                return new CommonViewHolder(LayoutInflater.from(viewGroup.getContext()).inflate(R.layout.layout_result_item, viewGroup, false));
+            }
+
+            @Override
+            public void onBindViewHolder(@NonNull RecyclerView.ViewHolder viewHolder, int i) {
+                TextView status = viewHolder.itemView.findViewById(R.id.status_tv);
+                String text;
+                if (showTcp) {
+                    text = tcpResultMap.get(pingUrls[i]).toString();
+                } else {
+                    text = resultMap.get(pingUrls[i]).toString();
+                }
+                status.setText(text);
+            }
+
+            @Override
+            public int getItemCount() {
+                return pingUrls.length;
+            }
+        });
+        btSendResult.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sendFeedback();
+                btSendResult.setText("反馈中...");
+            }
+        });
         showTcpCheckbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                String s;
                 showTcp = isChecked;
-                if (isChecked) {
-                    s = resultMap.get(pingUrl).toString();
-                } else {
-                    s = tcpResultMap.get(pingUrl).toString();
-                }
-                tvResult.setText(s);
+                resultList.getAdapter().notifyDataSetChanged();
             }
         });
+    }
+
+    class CommonViewHolder extends RecyclerView.ViewHolder {
+        public CommonViewHolder(@NonNull View itemView) {
+            super(itemView);
+        }
     }
 
     private void initData() {
@@ -120,80 +170,89 @@ public class ResultActivity extends AppCompatActivity {
             }
             pingComplete = false;
             tcpPingComplete = false;
-            traceRouteComplete = false;
-            Ping.start(pingUrl, new Output() {
+            pingDiagnose();
+            tcpDiagnose();
+            tranceRouteDiagnose();
+        }
+    }
+
+    private void tranceRouteDiagnose() {
+        if (!isFirst) {
+            return;
+        }
+        isFirst = false;
+        for (String url : pingUrls) {
+            TraceRoute.start(url, new Output() {
                 @Override
                 public void write(String line) {
-                    Log.e("TAG", "Ping write: " + line);
+                    Log.e("TAG", "TraceRoute write: " + line);
                 }
-            }, new Ping.Callback() {
+            }, new TraceRoute.Callback() {
                 @Override
-                public void complete(com.qiniu.android.netdiag.Ping.Result r) {
-                    pingComplete = true;
-                    PingResultBean pingResultBean = new PingResultBean(pingUrl, r.count, r.dropped, r.avg, r.max, r.min, r.ip);
-                    pingResults.add(pingResultBean);
-                    pingResultStatistics(resultMap, pingResults);
+                public void complete(TraceRoute.Result r) {
+                    traceRouteMap.put(pingUrl, r.content());
+                    Log.e("TAG", "TraceRoute ip: " + r.ip + " data:" + r.content());
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            if (!showTcp) {
-                                tvResult.setText(resultMap.get(pingUrl).toString());
-                            }
                             startDiagnose();
                         }
                     });
                 }
             });
-            TcpPing.start(pingUrl, new Output() {
-                @Override
-                public void write(String line) {
-                    Log.e("TAG", "TcpPing write: " + line);
-                }
-            }, new TcpPing.Callback() {
-                @Override
-                public void complete(TcpPing.Result r) {
-                    tcpPingComplete = true;
-                    Log.e("TAG", "TcpPing count: " + r.count + " droped:" + r.dropped);
-                    PingResultBean pingResultBean = new PingResultBean(pingUrl, r.count, r.dropped, r.avgTime, r.maxTime, r.minTime, r.ip);
-                    tcpPingResults.add(pingResultBean);
-                    pingResultStatistics(tcpResultMap, tcpPingResults);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (showTcp) {
-                                tvResult.setText(tcpResultMap.get(pingUrl).toString());
-                            }
-                            startDiagnose();
-                        }
-                    });
-                }
-            });
-            if (!isFirst) {
-                return;
+        }
+    }
+
+    @NotNull
+    private Task tcpDiagnose() {
+        return TcpPing.start(pingUrl, new Output() {
+            @Override
+            public void write(String line) {
+                Log.e("TAG", "TcpPing write: " + line);
             }
-            isFirst = false;
-            for (String url : pingUrls) {
-                TraceRoute.start(url, new Output() {
+        }, new TcpPing.Callback() {
+            @Override
+            public void complete(TcpPing.Result r) {
+                tcpPingComplete = true;
+                Log.e("TAG", "TcpPing count: " + r.count + " droped:" + r.dropped);
+                PingResultBean pingResultBean = new PingResultBean(pingUrl, r.count, r.dropped, r.avgTime, r.maxTime, r.minTime, r.ip);
+                tcpPingResults.add(pingResultBean);
+                pingResultStatistics(tcpResultMap, tcpPingResults);
+                runOnUiThread(new Runnable() {
                     @Override
-                    public void write(String line) {
-                        Log.e("TAG", "TraceRoute write: " + line);
-                    }
-                }, new TraceRoute.Callback() {
-                    @Override
-                    public void complete(TraceRoute.Result r) {
-                        traceRouteComplete = true;
-                        traceRouteMap.put(pingUrl, r.content());
-                        Log.e("TAG", "TraceRoute ip: " + r.ip + " data:" + r.content());
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                startDiagnose();
-                            }
-                        });
+                    public void run() {
+                        startDiagnose();
                     }
                 });
             }
-        }
+        });
+    }
+
+    @NotNull
+    private Task pingDiagnose() {
+        return Ping.start(pingUrl, new Output() {
+            @Override
+            public void write(String line) {
+                Log.e("TAG", "Ping write: " + line);
+            }
+        }, new Ping.Callback() {
+            @Override
+            public void complete(Ping.Result r) {
+                pingComplete = true;
+                PingResultBean pingResultBean = new PingResultBean(pingUrl, r.count, r.dropped, r.avg, r.max, r.min, r.ip);
+                pingResults.add(pingResultBean);
+                pingResultStatistics(resultMap, pingResults);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!showTcp) {
+                            resultList.getAdapter().notifyDataSetChanged();
+                        }
+                        startDiagnose();
+                    }
+                });
+            }
+        });
     }
 
     @SuppressLint("InvalidWakeLockTag")
@@ -212,25 +271,6 @@ public class ResultActivity extends AppCompatActivity {
         if (null != wakeLock) {
             wakeLock.release();
             wakeLock = null;
-        }
-    }
-
-    private void showDialog() {
-        if (null == loadingDialog) {
-            loadingDialog = new LoadingDialog(this);
-            loadingDialog.setText("结束评测并发送错误反馈");
-            loadingDialog.setCanceledOnTouchOutside(false);
-            loadingDialog.setOnConfirmListener(new LoadingDialog.onConfirmClickListener() {
-                @Override
-                public void onConfirm() {
-                    sendFeedback();
-                    loadingDialog.setText("反馈中...");
-                    needDetection = false;
-                }
-            });
-        }
-        if (!this.isFinishing()) {
-            loadingDialog.show();
         }
     }
 
@@ -261,34 +301,36 @@ public class ResultActivity extends AppCompatActivity {
             public void onReceive(Context context, Intent intent) {
                 boolean succeed = (boolean) intent.getExtras().get(Constants.FEEDBACK_STATUS_KEY);
                 if (!isFinishing()) {
-                    ResultDialog dialog = new ResultDialog(ResultActivity.this);
-                    if (succeed) {
-                        dialog.setResult("反馈成功！");
-                        dialog.setOnConfirmListener(new ResultDialog.onConfirmClickListener() {
-                            @Override
-                            public void onConfirm() {
-                                finish();
-                            }
-                        });
-                    } else {
-                        dialog.setResult("反馈失败，请重试");
-                        dialog.setOnConfirmListener(new ResultDialog.onConfirmClickListener() {
-                            @Override
-                            public void onConfirm() {
-                                dialog.dismiss();
-                            }
-                        });
-                    }
-                    dialog.setPath("结果保存路径：" + fileSavePath);
-                    dialog.show();
+                    showResultDialog(succeed);
                 }
-                disDialog();
-                if (feedbackService != null) {
-                    stopService();
-                }
+                btSendResult.setText("结束评测并发送错误反馈");
+                stopService();
             }
         };
         registerReceiver(feedbackReceiver, new IntentFilter(Constants.FEEDBACK_ACTION));
+    }
+
+    private void showResultDialog(boolean succeed) {
+        ResultDialog dialog = new ResultDialog(ResultActivity.this);
+        if (succeed) {
+            dialog.setResult("反馈成功！");
+            dialog.setOnConfirmListener(new ResultDialog.onConfirmClickListener() {
+                @Override
+                public void onConfirm() {
+                    finish();
+                }
+            });
+        } else {
+            dialog.setResult("反馈失败，请重试");
+            dialog.setOnConfirmListener(new ResultDialog.onConfirmClickListener() {
+                @Override
+                public void onConfirm() {
+                    dialog.dismiss();
+                }
+            });
+        }
+        dialog.setPath("结果保存路径：" + fileSavePath);
+        dialog.show();
     }
 
     private void saveToLocal() {
@@ -390,19 +432,9 @@ public class ResultActivity extends AppCompatActivity {
         return array;
     }
 
-    private void disDialog() {
-        if (null != loadingDialog) {
-            loadingDialog.cancel();
-            loadingDialog.dismiss();
-            loadingDialog = null;
-            needDetection = false;
-        }
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        disDialog();
         releaseWakeLock();
         stopService();
         unregisterReceiver();
