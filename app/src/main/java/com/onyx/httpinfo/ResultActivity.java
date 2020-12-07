@@ -62,7 +62,7 @@ public class ResultActivity extends AppCompatActivity {
             "ip.luojilab.com",
             "ddmedia-cdn.igetget.com",
             "ddmedia-ali.igetget.com",
-            "igetoss-cdn.igetget.c om",
+            "igetoss-cdn.igetget.com",
             "igetoss-ali.igetget.com",
             "igetcdn.igetget.com",
             "112.96.109.30"
